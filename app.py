@@ -66,7 +66,7 @@ if not current_user:
     st.warning("ログインしてください")
     
     try:
-        redirect_to = "https://healthcheck2-yu1019092.streamlit.app"
+        redirect_to = "https://healthcheck2-yu1019092.streamlit.app/"
         res = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
