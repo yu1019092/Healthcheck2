@@ -19,36 +19,6 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 超重要：URLパラメータに code がある場合の厳密なセッション取得処理 ---
-query_params = st.query_params
-if "code" in query_params:
-    auth_code = query_params["code"]
-    if isinstance(auth_code, list):
-        auth_code = auth_code[0]
-    
-    try:
-        # Supabaseに認証コードを渡してアクセストークン（セッション）を強制取得
-        res = supabase.auth.exchange_code_for_session(auth_code)
-        if res and hasattr(res, "session") and res.session:
-            st.session_state["supabase_session"] = res.session
-            st.session_state["user"] = res.session.user
-        elif res and hasattr(res, "user") and res.user:
-            st.session_state["user"] = res.user
-    except Exception as e:
-        # exchangeでコケた場合の保険
-        try:
-            sess = supabase.auth.get_session()
-            if sess and sess.user:
-                st.session_state["user"] = sess.user
-                st.session_state["supabase_session"] = sess
-        except:
-            pass
-
-    # URLのパラメータ（code）を綺麗に消してリロード
-    st.query_params.clear()
-    st.rerun()
-
-# 既にログインセッションが保持されているかの確認
 if "user" not in st.session_state:
     try:
         session = supabase.auth.get_session()
@@ -63,42 +33,45 @@ st.title("データベース連携健康管理アプリ (Supabase OAuth)")
 current_user = st.session_state.get("user")
 
 if not current_user:
-    st.warning("ログインしてください")
+    st.warning("利用するにはログインまたは新規登録を行なってください")
+
+    tab1, tab2 = st.tabs(["ログイン", "新規登録"])
+
+    with tab1:
+        with st.form("ログイン"):
+            login_email = st.text_input("メールアドレス", key="login_email")
+            login_password = st.text_input("パスワード", type="password", key="login_password")
+            login_submit = st.form_submit_button("ログイン")
+
+            if login_submit:
+                try:
+                    res = supabase.auth.sign_in_with_password({
+                        "email": login_email,
+                        "password" : login_password
+                    })
+                    if res.user:
+                        st.session_state["user"] = res.user
+                        st.success("ログインしました！")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"ログインエラー（メールアドレスまたはパスワードが間違っています")
     
-    try:
-        redirect_to = "https://zczwodocrggnpekzzgtx.supabase.co/auth/v1/callback"
-        res = supabase.auth.sign_in_with_oauth({
-            "provider": "google",
-            "options": {
-                "redirect_to": redirect_to
-            }
-        })
-        
-        if res.url:
-            st.markdown(
-                f'''
-                <div style="margin-top: 20px;">
-                    <a href="{res.url}" target="_self" style="text-decoration: none;">
-                        <button style="
-                            background-color: #4285F4; 
-                            color: white; 
-                            padding: 12px 24px; 
-                            border: none; 
-                            border-radius: 6px; 
-                            cursor: pointer; 
-                            font-size: 16px; 
-                            font-weight: bold;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                        ">
-                            Googleでログイン
-                        </button>
-                    </a>
-                </div>
-                ''',
-                unsafe_allow_html=True
-            )
-    except Exception as e:
-        st.error(f"ログインURLの生成に失敗しました: {e}")
+    with tab2:
+        with st.form("新規登録"):
+            signup_email = st.text_input("メールアドレス", key="signup_email")
+            signup_password = st.text_input("パスワード(6文字以上)", type="password", key="signup_password")
+            signup_submit = st.form_submit_button("アカウントを作成")
+
+            if signup_submit:
+                try:
+                    res = supabase.auth.sign_up({
+                        "email" : signup_email,
+                        "password": signup_password
+                    })
+                    if res.user:
+                        st.success("アカウントを作成しました！「ログイン」タブからログインしてください")
+                except Exception as e:
+                    st.error(f"登録エラー: {e}")
 
 else:
     user_email = current_user.email
