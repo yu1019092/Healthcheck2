@@ -19,15 +19,35 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+if "supabase_session" in st.session_state:
+    sess = st.session_state["supabase_session"]
+    token = getattr(sess, "access_token", None)
+    if token:
+        try:
+            supabase.postgrest.auth(token)
+        except Exception:
+            pass
+
 if "user" not in st.session_state:
     try:
         session = supabase.auth.get_session()
         if session and session.user:
             st.session_state["user"] = session.user
             st.session_state["supabase_session"] = session
+            # 💡 ここでアクセストークンをクライアントに教え込む
+            if hasattr(session, 'access_token') and session.access_token:
+                supabase.auth.set_session(session.access_token, session.refresh_token)
     except:
         pass
 
+# 既にセッションが session_state に入っている場合も、リクエストのたびに確実にトークンをセットする
+elif "supabase_session" in st.session_state:
+    sess = st.session_state["supabase_session"]
+    try:
+        if hasattr(sess, 'access_token') and sess.access_token:
+            supabase.auth.set_session(sess.access_token, sess.refresh_token)
+    except:
+        pass
 st.title("データベース連携健康管理アプリ (Supabase OAuth)")
 
 current_user = st.session_state.get("user")
@@ -51,7 +71,8 @@ if not current_user:
                     })
                     if res.user:
                         st.session_state["user"] = res.user
-                        if res.session:
+                        if hasattr(res, 'session') and res.session:
+                            st.session_state["supabase_session"] = res.session
                             supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
                         st.success("ログインしました！")
                         st.rerun()
