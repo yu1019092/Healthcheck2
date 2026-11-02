@@ -51,6 +51,8 @@ if not current_user:
                     })
                     if res.user:
                         st.session_state["user"] = res.user
+                        if res.session:
+                            supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
                         st.success("ログインしました！")
                         st.rerun()
                 except Exception as e:
