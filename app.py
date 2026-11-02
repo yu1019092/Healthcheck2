@@ -120,6 +120,7 @@ else:
         }
 
         try:
+            st.write("送信データ:", insert_data)
             response = supabase.table("health-log").insert(insert_data).execute()
             st.success("データを保存しました")
         except Exception as e:
