@@ -92,9 +92,12 @@ if not current_user:
                         "password": signup_password
                     })
                     if res.user:
-                        st.success("アカウントを作成しました！「ログイン」タブからログインしてください")
+                        st.success("アカウントを作成しました！メールで確認後、「ログイン」タブからログインしてください")
                 except Exception as e:
-                    st.error(f"登録エラー: {e}")
+                    if "already registered" in str(e):
+                        st.error("このメールアドレスはすでに登録されています。ログインタブからログインしてください。")
+                    else:
+                        st.error(f"登録エラーが発生しました: {e}")
 
 else:
     user_email = current_user.email
